@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 namespace PharmacyApi.Models;
-
+//Customer Table Data 
 public partial class Customer
 {
     public int CustomerId { get; set; }
