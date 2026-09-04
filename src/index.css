@@ -1,0 +1,368 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Playfair:ital,opsz,wght@0,5..1200,300..900;1,5..1200,300..900&display=swap');
+
+
+* {
+  margin: 0;
+  padding: 0;
+  font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
+}
+
+
+/*----------- Inventory -----------*/
+
+.inventory-page {
+  padding: 20px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.inventory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.inventory-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0;
+}
+
+.inventory-count {
+  padding: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.addmedicine-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #009090;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+
+.addmedicine-btn:hover {
+  background-color: #007575;
+}
+
+.search-constainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background-color: #fff;
+  padding: 8px 12px;
+  gap: 10px;
+}
+
+.search-bar {
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 8px 30px;
+  border-radius: 10px;
+  outline: none;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.search-icon {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  z-index: 100;
+}
+
+.inventory-table-container {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.filters{
+  display: flex;
+  gap: 10px;
+}
+
+.category,.status{
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #f8fafc;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+/* Base Table Properties */
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+/* Header Styling */
+.inventory-table th {
+  background-color: #f8fafc;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Row Spacing and Divider Borders */
+.inventory-table td {
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Row Hover Effect */
+.inventory-table tbody tr:hover {
+  background-color: #f8fafc;
+  transition: background-color 0.2s ease;
+}
+
+.tablecont{
+  width: 25vw;
+}
+
+/* Typography Helpers inside cells */
+.cell-title {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.cell-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Pill / Badge Styling */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-gray {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.badge-green {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #d1fae5;
+}
+
+.badge-orange {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-red {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Action Buttons alignment */
+.text-right {
+  text-align: right;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding-right: 15px;
+  transition: color 0.15s;
+}
+
+.action-btn:hover {
+  color: #0f172a;
+}
+
+.action-btn.delete:hover {
+  color: #dc2626;
+}
+
+
+
+
+
+
+/*---------- search bar styles ---------*/
+.billing-page {
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: .75em;
+}
+
+.billing-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+/* Search bar sits above scroll */
+.bill-search-container  {
+  position: relative;
+  padding: 1px;
+  margin-bottom: 20px;
+  border-radius: 11px;
+}
+
+.bill-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  z-index: 100;
+}
+
+
+/* Medicines list scrolls independently */
+.medicine-list {
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  height: 80vh; /* fixed height */
+  overflow-y: auto;
+}
+
+.medicine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.medicine-card {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 16px;
+  border: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.medicine-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.composition {
+  font-size: 11.5px;
+  color: #555;
+}
+
+.price {
+  font-size: 14px;
+  color: #333;
+}
+
+.price-value {
+  font-weight: 600;
+  font-size: 16px;
+  color: #009090;
+}
+
+.add-to-cart-button {
+  margin-top: 10px;
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #d1fae5;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-to-cart-button:hover {
+  background: #009090;
+  color: #fff;
+}
+
+/* Bill section */
+.bill-section {
+  background: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bill-items {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.cart-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.cart-table th {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px;
+  font-weight: 600;
+  color: #555;
+}
+
+.cart-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.item-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.item-price {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.text-left { text-align: left; }
+.text-center {  align-items: center;  justify-content: center;
+  display: flex;
+}
+.text-right { text-align: right; }

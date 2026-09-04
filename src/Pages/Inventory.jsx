@@ -1,0 +1,286 @@
+import { useState, useEffect } from "react";
+import {
+  getMedicines,
+  updateMedicine,
+  deleteMedicine,
+  getSupplier,
+} from "../API/medicine";
+import { Plus, Pencil, Trash2, Check, X, Search } from "lucide-react"; // icons
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+function Inventory() {
+  const [inventoryData, setInventoryData] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [category, setCategory] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const meds = await getMedicines();
+        const supps = await getSupplier();
+        setInventoryData(Array.isArray(meds) ? meds : []);
+        setSuppliers(Array.isArray(supps) ? supps : []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const getSupplierName = (supplierId) => {
+    const supplier = suppliers.find((s) => s.supplierId === supplierId);
+    return supplier ? supplier.supplierName : "Unknown Supplier";
+  };
+
+  const handleEdit = (item) => {
+    setEditingId(item.medicineId);
+    setEditData({ ...item });
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await updateMedicine(editingId, editData);
+      setInventoryData((prev) =>
+        prev.map((m) => (m.medicineId === editingId ? editData : m)),
+      );
+      setEditingId(null);
+      setEditData({});
+    } catch (error) {
+      console.error("Error updating medicine:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteMedicine(id);
+      const meds = await getMedicines();
+      setInventoryData(Array.isArray(meds) ? meds : []);
+    } catch (error) {
+      console.error("Error deleting medicine:", error);
+    }
+  };
+
+  const filteredData = inventoryData.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    getSupplierName(item.supplierId)
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const matchesCategory =
+      category === "all" || item.category.toLowerCase() === category;
+
+    const expiryDate = new Date(item.expiryDate);
+    const today = new Date();
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(today.getMonth() + 1);
+
+    const matchesStatus =
+      status === "all" ||
+      (status === "low" && item.stockQuantity < 30) ||
+      (status === "out" && item.stockQuantity === 0) ||
+      (status === "expiring" &&
+        expiryDate >= today &&
+        expiryDate <= oneMonthFromNow) ||
+      (status === "expired" && expiryDate < today);
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  return (
+    <div className="inventory-page">
+      <div className="inventory-header">
+        <div className="header-container">
+          <h1 className="inventory-title">Inventory</h1>
+          <p className="inventory-count">{inventoryData.length} • medicines</p>
+        </div>
+        <div className="addmedicine">
+          <button className="addmedicine-btn">
+            <Plus size={16} />
+            Add Medicine
+          </button>
+        </div>
+      </div>
+
+      <div className="search-constainer">
+        <div className="search-bar">
+          <Search size={16} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search medicines..."
+            className="search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="filters">
+          {/* Category Dropdown */}
+          <div className="category">
+            <select
+              className="filter-select"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              <option value="capsules">Capsules</option>
+              <option value="injectables">Injectables</option>
+              <option value="sachets">Sachets</option>
+              <option value="supplements">Supplements</option>
+              <option value="syrups">Syrups</option>
+              <option value="tablets">Tablets</option>
+              <option value="topicals">Topicals</option>
+            </select>
+          </div>
+          <div className="status">
+            {/* Status Dropdown */}
+            <select
+              className="filter-select"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="all">All statuses</option>
+              <option value="low">Low stock</option>
+              <option value="out">Out of stock</option>
+              <option value="expiring">Expiring soon</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="inventory-table-container">
+        <table className="inventory-table">
+          <thead>
+            <tr>
+              <th>Medicine</th>
+              <th>Category</th>
+              <th>Expiry</th>
+              <th>Stock</th>
+              <th>Price</th>
+              <th>Supplier</th>
+              <th className="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.map((item) => (
+              <tr key={item.medicineId}>
+                <td>
+                  <div className="tablecont">
+                    <div className="cell-title">{item.name}</div>
+                    <div className="cell-subtitle">
+                      {getSupplierName(item.supplierId)}
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span className="badge badge-gray">{item.category}</span>
+                </td>
+                <td>
+                  {(() => {
+                    const expiryDate = new Date(item.expiryDate);
+                    const now = new Date();
+                    const diffDays = Math.ceil(
+                      (expiryDate - now) / (1000 * 60 * 60 * 24),
+                    );
+
+                    if (expiryDate < now) {
+                      return <span className="badge badge-red">Expired</span>;
+                    } else if (diffDays <= 30) {
+                      return (
+                        <span className="badge badge-orange">
+                          {diffDays}d left
+                        </span>
+                      );
+                    } else {
+                      return formatDate(item.expiryDate);
+                    }
+                  })()}{" "}
+                </td>
+                <td>
+                  {(() => {
+                    if (item.stockQuantity === 0) {
+                      return (
+                        <span className="badge badge-red">Out of stock</span>
+                      );
+                    } else if (item.stockQuantity < item.reorderLevel) {
+                      return (
+                        <span className="badge badge-orange">
+                          Low • {item.stockQuantity}
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="badge badge-green">
+                          {item.stockQuantity} in stock
+                        </span>
+                      );
+                    }
+                  })()}
+                </td>
+                <td className="cell-title">
+                  {editingId === item.medicineId ? (
+                    <input
+                      type="number"
+                      value={editData.price}
+                      onChange={(e) =>
+                        setEditData({ ...editData, price: e.target.value })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    `₹${item.price}`
+                  )}
+                </td>
+                <td>{getSupplierName(item.supplierId)}</td>
+                <td className="text-right">
+                  {editingId === item.medicineId ? (
+                    <>
+                      <button onClick={handleUpdate} className="action-btn">
+                        <Check size={16} />
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="action-btn delete"
+                      >
+                        <X size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="action-btn"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.medicineId)}
+                        className="action-btn delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default Inventory;
