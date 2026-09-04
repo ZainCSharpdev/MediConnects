@@ -79,9 +79,9 @@ builder.Services.AddScoped<AuthService>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("https://localhost:5173/", builder =>
+    options.AddPolicy("AllowAll", builder =>
     {
-        builder.AllowAnyOrigin()
+        builder.WithOrigins("https://localhost:5173")
                .AllowAnyMethod()
                .AllowAnyHeader();
     });
