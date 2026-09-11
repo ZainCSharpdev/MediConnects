@@ -15,9 +15,8 @@ namespace PharmacyApi.Services.Sale
             await _saleRead.GetSaleByIdAsync(id);
 
         //Creating sale (Add)
-        public async Task<int> CreateSaleAsync(SaleDto dto, List<SaleDetailDto> details)
+        public async Task<int> CreateSaleAsync(SaleCreateDto dto, List<SalesDetailCreateDto> details)
         {
-            dto.SaleDate = DateTime.Now;
             return await _saleWrite.AddSaleAsync(dto, details);
         }
 

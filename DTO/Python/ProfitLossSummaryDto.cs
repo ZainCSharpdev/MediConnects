@@ -8,5 +8,6 @@
         public decimal TotalCost { get; set; }
         public decimal GrossProfit { get; set; }
         public decimal GrossMarginPct { get; set; }
+        public string Status { get; set; }
     }
 }

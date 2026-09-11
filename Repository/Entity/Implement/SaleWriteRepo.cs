@@ -7,12 +7,15 @@ namespace PharmacyApi.Repository.Entity.Implement
 {
     public class SaleWriteRepo(PharmacyDbContext _context) : ISaleWriteRepo
     {
-        public async Task<int> AddSaleAsync(SaleDto dto,List<SaleDetailDto> details)
+        public async Task<int> AddSaleAsync(SaleCreateDto dto,List<SalesDetailCreateDto> details)
         {
+            var today = DateTime.Now;
+            var dayPart = today.ToString("dd");
+            var countForDay = await _context.Sales.CountAsync(s => s.SaleDate.Date == today.Date) + 1;
             var sale = new Sale
             {
-                SaleDate = dto.SaleDate,
-                Invoice = dto.Invoice,
+                SaleDate = today,
+                Invoice = $"INV-{dayPart}-{countForDay:D2}",
                 CustomerName = dto.CustomerName,
                 Discount = dto.Discount,
                 Method = dto.Method,
@@ -24,6 +27,7 @@ namespace PharmacyApi.Repository.Entity.Implement
             {
                 var medicine = await _context.Medicines.FindAsync(d.MedicineId);
                 if(medicine == null) throw new Exception("Medicine not found");
+                if(medicine.StockQuantity < d.Qty) throw new Exception($"Not enough stock for medicine {medicine.Name}");
                 medicine.StockQuantity -= d.Qty;
 
                 var detail = new SaleDetail
@@ -31,16 +35,25 @@ namespace PharmacyApi.Repository.Entity.Implement
                     MedicineId = d.MedicineId,
                     Qty = d.Qty,
                     UnitPrice = d.UnitPrice,
+                    TotalPrice = d.Qty * d.UnitPrice
                 };
                 sale.SaleDetails.Add(detail);
-                total += d.Qty * d.UnitPrice;
+                total += (decimal)detail.TotalPrice;
             }
 
             sale.TotalAmount = total;
             sale.NetAmount = total - dto.Discount;
 
             await _context.Sales.AddAsync(sale);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.InnerException?.Message);
+                throw;
+            }
             return sale.SaleId;
         }
 

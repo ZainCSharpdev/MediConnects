@@ -79,6 +79,7 @@ namespace PharmacyApi.Services.Medicine
                 Id = m.Id,
                 Name = m.Name,
                 Price = m.Price,
+                pack_size_label=m.PackSizeLabel,
                 Manufacturer = m.ManufacturerName,
                 Category = m.Type,
                 StockQuantity = 0.ToString()
@@ -94,15 +95,15 @@ namespace PharmacyApi.Services.Medicine
             await _writeRepo.AddMedicineAsync(dto);
         }
 
-        public async Task<MedicineDto> UpdateMedicineAsync(MedicineDto dto)
+        public async Task<MedicineDto> UpdateMedicineAsync(MedicineDto dto, int MedicineId)
         {
-            await _writeRepo.UpdateMedicineAsync(dto);
+            await _writeRepo.UpdateMedicineAsync(dto, MedicineId);
             return dto;
         }
 
-        public async Task DeleteMedicineAsync(int medicineId)
+        public async Task DeleteMedicineAsync(int MedicineId)
         {
-            await _writeRepo.DeleteMedicineAsync(medicineId);
+            await _writeRepo.DeleteMedicineAsync(MedicineId);
         }
     }
 }

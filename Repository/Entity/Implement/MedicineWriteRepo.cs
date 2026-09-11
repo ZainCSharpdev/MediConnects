@@ -25,9 +25,9 @@ namespace PharmacyApi.Repository.Entity.Implement
             await _context.SaveChangesAsync();
         }
 
-        public async Task UpdateMedicineAsync(MedicineDto dto)
+        public async Task UpdateMedicineAsync(MedicineDto dto, int MedicineId)
         {
-            var medicine = await _context.Medicines.FindAsync(dto.MedicineId);
+            var medicine = await _context.Medicines.FindAsync(MedicineId);
             if(medicine != null)
             {
                 medicine.Name = dto.Name;
@@ -41,15 +41,23 @@ namespace PharmacyApi.Repository.Entity.Implement
                 medicine.pack_size_label = dto.pack_size_label;
                 await _context.SaveChangesAsync();
             }
+            if(medicine == null)
+            {
+                throw new Exception($"Medicine with ID {dto.MedicineId} not found.");
+            }
         }
 
-        public async Task DeleteMedicineAsync(int id)
+        public async Task DeleteMedicineAsync(int MedicineId)
         {
-            var medicine = await _context.Medicines.FindAsync(id);
+            var medicine = await _context.Medicines.FindAsync(MedicineId);
             if (medicine != null)
             {
                 _context.Medicines.Remove(medicine);
                 await _context.SaveChangesAsync();
+            }
+            if (medicine == null)
+            {
+                throw new Exception($"Medicine with ID {MedicineId} not found.");
             }
         }
     }

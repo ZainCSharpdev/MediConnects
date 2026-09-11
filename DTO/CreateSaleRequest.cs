@@ -2,7 +2,7 @@
 {
     public class CreateSaleRequest
     {
-        public SaleDto Sale { get; set; } = new SaleDto();
-        public List<SaleDetailDto> SaleDetails { get; set; } = new List<SaleDetailDto>();
+        public SaleCreateDto Sale { get; set; } = new SaleCreateDto();
+        public List<SalesDetailCreateDto> SaleDetails { get; set; } = new List<SalesDetailCreateDto>();
     }
 }

@@ -70,7 +70,7 @@ namespace PharmacyApi.Controllers
         public async Task<IActionResult> UpdateMedicine(int id, [FromBody] MedicineDto dto)
         {
             dto.MedicineId = id;
-            var updatedMedicine = await _service.UpdateMedicineAsync(dto);
+            var updatedMedicine = await _service.UpdateMedicineAsync(dto, id);
             return Ok(updatedMedicine);
         }
 

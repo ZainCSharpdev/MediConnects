@@ -8,5 +8,6 @@
         public decimal Cost { get; set; }
         public decimal Profit { get; set; }
         public decimal MarginPct { get; set; }
+        public string status { get; set; }
     }
 }

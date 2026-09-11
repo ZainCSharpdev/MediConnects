@@ -20,10 +20,10 @@ public partial class Medicine
     public decimal? CostPrice { get; set; }
 
     public int? ReorderLevel { get; set; }
-
+    
     public int? SupplierId { get; set; }
 
-    public int pack_size_label { get; set; }
+    public int? pack_size_label { get; set; }
 
     public virtual ICollection<PurchaseOrderDetail> PurchaseOrderDetails { get; set; } = new List<PurchaseOrderDetail>();
 
