@@ -15,6 +15,7 @@ class ProfitLossSummary(BaseModel):
     total_cost: float
     gross_profit: float
     gross_margin_pct: float
+    status:str
 
 
 class ProfitLossByMedicine(BaseModel):
@@ -24,6 +25,7 @@ class ProfitLossByMedicine(BaseModel):
     cost: float
     profit: float
     margin_pct: float
+    status:str
 
 
 class LowStockMedicine(BaseModel):

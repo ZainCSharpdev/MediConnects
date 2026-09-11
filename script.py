@@ -39,13 +39,13 @@ logger = logging.getLogger("pharmacy_api")
 def get_profit_loss_summary(start_date: date, end_date: date) -> dict:
     revenue_query = """
         SELECT ISNULL(SUM(s.NetAmount), 0) AS total_revenue
-        FROM Sale s
+        FROM Sales s
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
     """
     cost_query = """
         SELECT ISNULL(SUM(sd.Qty * m.CostPrice), 0) AS total_cost
-        FROM Sale s
-        JOIN SalesDetails sd ON sd.SaleId = s.SaleId
+        FROM Sales s
+        JOIN SaleDetails sd ON sd.SaleId = s.SaleId
         JOIN Medicines m    ON m.MedicineId = sd.MedicineId
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
     """
@@ -56,7 +56,14 @@ def get_profit_loss_summary(start_date: date, end_date: date) -> dict:
     cost = float(cost_row["total_cost"])
     profit = revenue - cost
     margin = (profit / revenue * 100) if revenue > 0 else 0.0
-
+    
+    if profit > 0:
+        pl_status = "Profit"
+    elif profit < 0:
+        pl_status = "Loss"
+    else:
+        pl_status = "Break-even"
+            
     return {
         "period_start": start_date,
         "period_end": end_date,
@@ -64,7 +71,9 @@ def get_profit_loss_summary(start_date: date, end_date: date) -> dict:
         "total_cost": round(cost, 2),
         "gross_profit": round(profit, 2),
         "gross_margin_pct": round(margin, 2),
+        "status": pl_status,
     }
+
 
 
 def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 50) -> list[dict]:
@@ -74,8 +83,8 @@ def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 5
             m.Name                                  AS medicine_name,
             ISNULL(SUM(sd.TotalPrice), 0)           AS revenue,
             ISNULL(SUM(sd.Qty * m.CostPrice), 0)    AS cost
-        FROM Sale s
-        JOIN SalesDetails sd ON sd.SaleId = s.SaleId
+        FROM Sales s
+        JOIN SaleDetails sd ON sd.SaleId = s.SaleId
         JOIN Medicines m    ON m.MedicineId = sd.MedicineId
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
         GROUP BY m.MedicineId, m.Name
@@ -88,6 +97,14 @@ def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 5
         cost = float(r["cost"])
         profit = revenue - cost
         margin = (profit / revenue * 100) if revenue > 0 else 0.0
+        
+        if profit > 0:
+            pl_status = "Profit"
+        elif profit < 0:
+            pl_status = "Loss"
+        else:
+            pl_status = "Break-even"
+
         results.append({
             "medicine_id": r["medicine_id"],
             "medicine_name": r["medicine_name"],
@@ -95,6 +112,7 @@ def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 5
             "cost": round(cost, 2),
             "profit": round(profit, 2),
             "margin_pct": round(margin, 2),
+            "status": pl_status, 
         })
     return results
 
@@ -106,8 +124,8 @@ def get_loss_making_medicines(start_date: date, end_date: date, limit: int = 50)
             m.Name                                  AS medicine_name,
             ISNULL(SUM(sd.TotalPrice), 0)           AS revenue,
             ISNULL(SUM(sd.Qty * m.CostPrice), 0)    AS cost
-        FROM Sale s
-        JOIN SalesDetails sd ON sd.SaleId = s.SaleId
+        FROM Sales s
+        JOIN SaleDetails sd ON sd.SaleId = s.SaleId
         JOIN Medicines m    ON m.MedicineId = sd.MedicineId
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
         GROUP BY m.MedicineId, m.Name
@@ -134,15 +152,16 @@ def get_loss_making_medicines(start_date: date, end_date: date, limit: int = 50)
 
 def get_low_stock_medicines(threshold: int | None = None) -> list[dict]:
     if threshold is None:
+        # Default behavior: checks every medicine's individual reorder level
         query = """
             SELECT
-                m.MedicineId                        AS medicine_id,
-                m.Name                              AS medicine_name,
-                m.StockQuantity                     AS stock_quantity,
-                m.ReorderLevel                      AS reorder_level,
-                (m.ReorderLevel - m.StockQuantity)    AS shortfall,
-                sup.SupplierId                      AS supplier_id,
-                sup.SupplierName                    AS supplier_name
+                m.MedicineId                            AS medicine_id,
+                m.Name                                  AS medicine_name,
+                m.StockQuantity                         AS stock_quantity,
+                m.ReorderLevel                          AS reorder_level,
+                (m.ReorderLevel - m.StockQuantity)      AS shortfall,
+                sup.SupplierId                          AS supplier_id,
+                sup.SupplierName                        AS supplier_name
             FROM Medicines m
             LEFT JOIN Suppliers sup ON sup.SupplierId = m.SupplierId
             WHERE m.ReorderLevel IS NOT NULL
@@ -151,21 +170,23 @@ def get_low_stock_medicines(threshold: int | None = None) -> list[dict]:
         """
         return fetch_all(query)
 
+    # Optional threshold override if passed from frontend
     query = """
         SELECT
-            m.MedicineId                        AS medicine_id,
-            m.Name                              AS medicine_name,
-            m.StockQuantity                     AS stock_quantity,
-            ? AS reorder_level,
-            (? - m.StockQuantity)               AS shortfall,
-            sup.SupplierId                      AS supplier_id,
-            sup.SupplierName                    AS supplier_name
+            m.MedicineId                            AS medicine_id,
+            m.Name                                  AS medicine_name,
+            m.StockQuantity                         AS stock_quantity,
+            m.ReorderLevel                          AS reorder_level,
+            (m.ReorderLevel - m.StockQuantity)      AS shortfall,
+            sup.SupplierId                          AS supplier_id,
+            sup.SupplierName                        AS supplier_name
         FROM Medicines m
         LEFT JOIN Suppliers sup ON sup.SupplierId = m.SupplierId
-        WHERE m.StockQuantity <= ?
+        WHERE m.ReorderLevel IS NOT NULL
+          AND m.StockQuantity <= ?
         ORDER BY m.StockQuantity ASC
     """
-    return fetch_all(query, (threshold, threshold, threshold))
+    return fetch_all(query, (threshold,))
 
 
 def get_supplier_lead_times(months_back: int = 12) -> list[dict]:
@@ -230,8 +251,8 @@ def get_top_selling_medicines(start_date: date, end_date: date, limit: int = 10)
             m.Name                               AS medicine_name,
             SUM(sd.Qty)                          AS units_sold,
             SUM(sd.TotalPrice)                   AS revenue
-        FROM Sale s
-        JOIN SalesDetails sd ON sd.SaleId = s.SaleId
+        FROM Sales s
+        JOIN SaleDetails sd ON sd.SaleId = s.SaleId
         JOIN Medicines m    ON m.MedicineId = sd.MedicineId
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
         GROUP BY m.MedicineId, m.Name
@@ -267,7 +288,7 @@ def get_sales_by_payment_method(start_date: date, end_date: date) -> list[dict]:
             ISNULL(s.Method, 'Unspecified')     AS method,
             COUNT(*)                            AS transaction_count,
             SUM(s.NetAmount)                    AS total_net_amount
-        FROM Sale s
+        FROM Sales s
         WHERE s.SaleDate >= ? AND s.SaleDate < DATEADD(DAY, 1, ?)
         GROUP BY s.Method
         ORDER BY SUM(s.NetAmount) DESC
