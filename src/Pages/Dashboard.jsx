@@ -1,216 +1,390 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Grid, Paper, Typography, Button, 
-  List, ListItem, ListItemText, Divider 
-} from '@mui/material';
-import { 
-  Dashboard as DashboardIcon, Inventory, PointOfSale, 
-  Receipt, Warning, LocalHospital 
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { getProfitLoss, getLowStockAnalytics, getExpiringSoonAnalytics } from '../API/analytics';
-import { getMedicines } from '../API/medicine';
-import { getSales } from '../API/sale';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { getMedicineCount } from "../API/medicine";
+import { getSales } from "../API/sale";
+import {
+  getLowStockAnalytics,
+  getExpiringSoonAnalytics,
+} from "../API/analytics";
+import {
+  Package,
+  AlertTriangle,
+  Calendar,
+  ArrowRight,
+  TrendingUp,
+  ReceiptText,
+} from "lucide-react";
 
-export default function Dashboard() {
+function Dashboard() {
   const navigate = useNavigate();
 
-  // Dashboard States
-  const [revenueData, setRevenueData] = useState(0);
-  const [totalMedicines, setTotalMedicines] = useState(0);
-  const [lowStockItems, setLowStockItems] = useState([]);
-  const [expiringItems, setExpiringItems] = useState([]);
+  const [todayRevenue, setTodayRevenue] = useState(0);
+  const [todayBillsCount, setTodayBillsCount] = useState(0);
+  const [medicineCount, setMedicineCount] = useState(0);
+  const [lowStockList, setLowStockList] = useState([]);
+  const [expiringSoonList, setExpiringSoonList] = useState([]);
   const [recentSales, setRecentSales] = useState([]);
+  const [weeklySalesData, setWeeklySalesData] = useState([]);
+
+  // Helper to build the 7-day revenue chart data
+  const processWeeklyRevenue = (sales) => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const last7Days = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+
+      const dayName = days[d.getDay()];
+      const dateString = d.toISOString().split("T")[0];
+
+      const dayTotal = sales
+        .filter((s) => {
+          const sDate = s.saleDate ? s.saleDate.split("T")[0] : "";
+          return sDate === dateString;
+        })
+        .reduce((sum, s) => sum + (s.netAmount || s.totalAmount || 0), 0);
+
+      last7Days.push({ day: dayName, revenue: dayTotal, date: dateString });
+    }
+
+    setWeeklySalesData(last7Days);
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // 1. Today's Revenue (using current date for start and end)
-        const profitRes = await getProfitLoss(today, today);
-        setRevenueData(profitRes?.totalRevenue || 79.28); 
+        const todayStr = new Date().toISOString().split("T")[0];
 
-        // 2. Medicines count from Inventory
-        const meds = await getMedicines();
-        setTotalMedicines(meds?.length || 18);
+        // 1. Fetch Sales to calculate Today's Revenue and Bill Count
+        const salesData = await getSales().catch(() => []);
+        const safeSales = Array.isArray(salesData) ? salesData : [];
 
-        // 3. Low stock analytics (Threshold = 10)
-        const lowStockRes = await getLowStockAnalytics(10);
-        setLowStockItems(Array.isArray(lowStockRes) ? lowStockRes : []);
+        setRecentSales(safeSales.slice(0, 5));
 
-        // 4. Expiry alerts (90 days ahead)
-        const expiryRes = await getExpiringSoonAnalytics(90);
-        setExpiringItems(Array.isArray(expiryRes) ? expiryRes : []);
+        // Filter today's sales
+        const todaysSalesList = safeSales.filter((s) => {
+          const sDate = s.saleDate ? s.saleDate.split("T")[0] : "";
+          return sDate === todayStr;
+        });
 
-        // 5. Recent Sales
-        const salesRes = await getSales();
-        setRecentSales(Array.isArray(salesRes) ? salesRes.slice(0, 6) : []);
+        const calculatedTodayRev = todaysSalesList.reduce(
+          (sum, s) => sum + (s.netAmount || s.totalAmount || 0),
+          0,
+        );
 
-      } catch (err) {
-        console.error("Failed to load dashboard metrics", err);
+        setTodayRevenue(calculatedTodayRev);
+        setTodayBillsCount(todaysSalesList.length);
+
+        // Process Last 7 Days Revenue Chart
+        processWeeklyRevenue(safeSales);
+
+        // 2. Fetch Total Medicines Count
+        const countData = await getMedicineCount().catch(() => 0);
+        setMedicineCount(
+          typeof countData === "number" ? countData : countData?.count || 0,
+        );
+
+        // 3. Fetch Low Stock with threshold = 50
+        const stockData = await getLowStockAnalytics(50).catch(() => []);
+        setLowStockList(Array.isArray(stockData) ? stockData : []);
+
+        // 4. Fetch Expiring Soon with daysAhead = 90
+        const expiryData = await getExpiringSoonAnalytics(90).catch(() => []);
+        setExpiringSoonList(Array.isArray(expiryData) ? expiryData : []);
+      } catch (error) {
+        console.error("Error loading dashboard metrics:", error);
       }
     };
 
     fetchDashboardData();
   }, []);
 
+  const maxRevenue = Math.max(...weeklySalesData.map((d) => d.revenue), 100);
+
+  // Only hide the chart if ALL 7 days have zero sales
+  const isAllZeroSales = weeklySalesData.every((d) => d.revenue === 0);
+
   return (
-    <Box sx={{ display: 'flex', bgcolor: '#f4f7f6', minHeight: '100vh' }}>
-      
-      {/* Sidebar Navigation */}
-      <Box sx={{ width: 260, bgcolor: '#00332c', color: 'white', p: 2, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, gap: 1 }}>
-          <LocalHospital sx={{ color: '#00bfa5', fontSize: 32 }} />
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>MediConnects<br/><span style={{ fontSize: '11px', color: '#80cbc4' }}>PHARMACY SUITE</span></Typography>
-        </Box>
-        
-        <List sx={{ flexGrow: 1 }}>
-          <ListItem button selected sx={{ bgcolor: '#00796b', borderRadius: 2, mb: 1 }}>
-            <DashboardIcon sx={{ mr: 2 }} /> <ListItemText primary="Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/inventory')} sx={{ borderRadius: 2, mb: 1, '&:hover': { bgcolor: '#004d40' } }}>
-            <Inventory sx={{ mr: 2 }} /> <ListItemText primary="Inventory" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/billing')} sx={{ borderRadius: 2, mb: 1, '&:hover': { bgcolor: '#004d40' } }}>
-            <PointOfSale sx={{ mr: 2 }} /> <ListItemText primary="Billing / POS" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/sales')} sx={{ borderRadius: 2, mb: 1, '&:hover': { bgcolor: '#004d40' } }}>
-            <Receipt sx={{ mr: 2 }} /> <ListItemText primary="Sales" />
-          </ListItem>
-        </List>
+    <div className="dash-page">
+      {/* Header Section */}
+      <div className="dash-header">
+        <div className="dash-header-container">
+          <h1 className="dash-title">Dashboard</h1>
+          <p className="dash-count">
+            Store overview — sales, stock and expiry health
+          </p>
+        </div>
+      </div>
 
-        <Paper sx={{ p: 2, bgcolor: '#002521', color: 'white', borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Warning color="warning" fontSize="small" />
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>STOCK ALERTS</Typography>
-          </Box>
-          <Typography variant="body2" sx={{ color: '#b2dfdb', fontSize: '12px' }}>
-            {lowStockItems.length + expiringItems.length} items need attention (low stock / expiry).
-          </Typography>
-        </Paper>
-      </Box>
+      {/* TOP STATS CARDS GRID */}
+      <div className="dash-stats-grid">
+        <div className="dash-stat-card">
+          <div className="dash-card-top">
+            <div>
+              <p className="dash-card-label">Today's revenue</p>
+              <h3 className="dash-card-value">
+                ₹
+                {todayRevenue.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </h3>
+            </div>
+            <div className="dash-card-icon teal">
+              <TrendingUp size={20} />
+            </div>
+          </div>
+          <p className="dash-card-footer">
+            {todayBillsCount} bill{todayBillsCount === 1 ? "" : "s"} today
+          </p>
+        </div>
 
-      {/* Main Content Area */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#111' }}>Dashboard</Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>Store overview — sales, stock and expiry health</Typography>
+        <div className="dash-stat-card">
+          <div className="dash-card-top">
+            <div>
+              <p className="dash-card-label">Medicines in stock</p>
+              <h3 className="dash-card-value">{medicineCount}</h3>
+            </div>
+            <div className="dash-card-icon teal">
+              <Package size={20} />
+            </div>
+          </div>
+          <p className="dash-card-footer">Active inventory items</p>
+        </div>
 
-        {/* Top Metric Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="body2" color="textSecondary">Today's revenue</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1 }}>₹{revenueData}</Typography>
-              <Typography variant="caption" color="textSecondary">1 bill today</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="body2" color="textSecondary">Medicines in stock</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1 }}>{totalMedicines}</Typography>
-              <Typography variant="caption" color="textSecondary">Active inventory items</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="body2" color="textSecondary">Low / out of stock</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1, color: '#d32f2f' }}>{lowStockItems.length}</Typography>
-              <Typography variant="caption" color="textSecondary">Items at or below reorder level</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="body2" color="textSecondary">Expiry alerts</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1, color: '#ed6c02' }}>{expiringItems.length}</Typography>
-              <Typography variant="caption" color="textSecondary">Expired or expiring within 90 days</Typography>
-            </Paper>
-          </Grid>
-        </Grid>
+        <div className="dash-stat-card">
+          <div className="dash-card-top">
+            <div>
+              <p className="dash-card-label">Low / out of stock</p>
+              <h3 className="dash-card-value text-orange">
+                {lowStockList.length}
+              </h3>
+            </div>
+            <div className="dash-card-icon orange">
+              <AlertTriangle size={20} />
+            </div>
+          </div>
+          <p className="dash-card-footer">Items at or below reorder level</p>
+        </div>
 
-        {/* Revenue Chart Section Placeholder */}
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Revenue — last 7 days</Typography>
-              <Typography variant="caption" color="textSecondary">Daily billed total including GST</Typography>
-            </Box>
-            <Button color="primary" onClick={() => navigate('/sales')}>View all sales →</Button>
-          </Box>
-          <Box sx={{ height: 180, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', pt: 2, borderBottom: '1px solid #eee' }}>
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
-              <Box key={day} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 32, height: `${(index + 1) * 20}px`, bgcolor: '#00897b', borderRadius: '4px 4px 0 0' }} />
-                <Typography variant="caption" color="textSecondary">{day}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
+        <div className="dash-stat-card">
+          <div className="dash-card-top">
+            <div>
+              <p className="dash-card-label">Expiry alerts</p>
+              <h3 className="dash-card-value text-red">
+                {expiringSoonList.length}
+              </h3>
+            </div>
+            <div className="dash-card-icon red">
+              <Calendar size={20} />
+            </div>
+          </div>
+          <p className="dash-card-footer">Expired or expiring within 90 days</p>
+        </div>
+      </div>
 
-        {/* Bottom Split Tables: Recent Sales & Needs Attention */}
-        <Grid container spacing={3}>
-          {/* Recent Sales Table */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Recent sales</Typography>
-                <Button color="primary" onClick={() => navigate('/sales')}>View all →</Button>
-              </Box>
-              <List dense>
-                {recentSales.map((sale, i) => {
-                  const saleDateStr = sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : '30 Aug';
+      {/* REVENUE GRAPH SECTION */}
+      <div className="dash-chart-container">
+        <div className="dash-chart-header">
+          <div>
+            <h3 className="dash-chart-title">Revenue — last 7 days</h3>
+            <p className="dash-chart-subtitle">
+              Daily billed total including GST
+            </p>
+          </div>
+          <button
+            className="dash-view-all-btn"
+            onClick={() => navigate("/sales")}
+          >
+            View all sales <ArrowRight size={16} />
+          </button>
+        </div>
+
+        {isAllZeroSales ? (
+          <div className="dash-chart-empty">
+            No sales recorded for this week. Chart hidden.
+          </div>
+        ) : (
+          <div className="dash-chart-body">
+            <div className="dash-gridlines">
+              <span>₹{Math.round(maxRevenue)}</span>
+              <span>₹{Math.round(maxRevenue * 0.5)}</span>
+              <span>₹0</span>
+            </div>
+
+            {weeklySalesData.map((bar, idx) => {
+              const heightPct = Math.max(
+                (bar.revenue / maxRevenue) * 100,
+                bar.revenue > 0 ? 8 : 0,
+              );
+
+              return (
+                <div key={idx} className="dash-bar-col">
+                  <div
+                    style={{ height: `${heightPct}%` }}
+                    className="dash-bar-fill"
+                  >
+                    {bar.revenue > 0 && (
+                      <span className="dash-tooltip">₹{bar.revenue}</span>
+                    )}
+                  </div>
+                  <span className="dash-bar-day">{bar.day}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* BOTTOM TABLES SECTION */}
+      <div className="dash-bottom-grid">
+        {/* Recent Sales Table Panel */}
+        <div className="dash-panel">
+          <div className="dash-panel-header">
+            <h3 className="dash-panel-title">Recent sales</h3>
+            <button
+              className="dash-view-all-btn"
+              onClick={() => navigate("/sales")}
+            >
+              View all <ArrowRight size={14} />
+            </button>
+          </div>
+
+          <div className="dash-list-container">
+            {recentSales.length === 0 ? (
+              <p className="dash-empty-msg">No recent sales found.</p>
+            ) : (
+              recentSales.map((sale, i) => (
+                <div key={i} className="dash-list-row">
+                  <div className="dash-row-left">
+                    <div className="dash-row-icon-box">
+                      <ReceiptText size={18} />
+                    </div>
+                    <div>
+                      <p className="dash-cell-title">
+                        {sale.customerName || `Sale #${sale.saleId || i + 1}`}
+                      </p>
+                      <p className="dash-cell-sub">
+                        {sale.invoice || `INV-${sale.saleId || 1079 - i}`} •{" "}
+                        {sale.saleDate
+                          ? new Date(sale.saleDate).toLocaleDateString(
+                              "en-IN",
+                              { day: "numeric", month: "short" },
+                            )
+                          : "Today"}
+                        ,{" "}
+                        {sale.saleDate
+                          ? new Date(sale.saleDate).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="dash-row-right dash-sale">
+                    <p className="dash-cell-title">
+                      ₹{sale.netAmount || sale.totalAmount || 0}
+                    </p>
+                    <span className="dash-badge dash-badge-green">
+                      {sale.paymentMode || "Paid"}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Needs Attention Panel */}
+        <div className="dash-panel">
+          <div className="dash-panel-header">
+            <h3 className="dash-panel-title">Needs attention</h3>
+            <button
+              className="dash-view-all-btn"
+              onClick={() => navigate("/inventory")}
+            >
+              Open inventory <ArrowRight size={14} />
+            </button>
+          </div>
+
+          <div className="dash-list-container dash-scrollable">
+            {lowStockList.length === 0 && expiringSoonList.length === 0 ? (
+              <p className="dash-empty-msg">
+                All inventory stock & expiry levels are healthy!
+              </p>
+            ) : (
+              <>
+                {expiringSoonList.map((item, idx) => {
+                  const isExpired = item.daysUntilExpiry < 0;
+
                   return (
-                    <React.Fragment key={sale.id || i}>
-                      <ListItem sx={{ py: 1.5 }}>
-                        <ListItemText 
-                          primary={<Typography variant="body2" sx={{ fontWeight: 'bold' }}>{sale.customerName || "Walk-in Customer"}</Typography>}
-                          secondary={`INV-${sale.id || '1079'} · ${saleDateStr}`}
-                        />
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>₹{sale.totalAmount}</Typography>
-                          <Typography variant="caption" sx={{ bgcolor: '#e0f2f1', px: 1, py: 0.5, borderRadius: 1, color: '#00695c' }}>
-                            {sale.paymentMethod || 'Card'}
-                          </Typography>
-                        </Box>
-                      </ListItem>
-                      {i < recentSales.length - 1 && <Divider />}
-                    </React.Fragment>
+                    <div key={`exp-${idx}`} className="dash-list-row">
+                      <div className="dash-row-left">
+                        <div>
+                          <p className="dash-cell-title">{item.medicineName}</p>
+                          <p className="dash-cell-sub">
+                            {item.category || item.genericName || "Medicine"}{" "}
+                            {item.batchNumber
+                              ? `• Batch ${item.batchNumber}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="dash-row-right">
+                        {!isExpired && (
+                          <span
+                            className="dash-cell-sub  badge badge-orange"
+                            style={{ fontWeight: 600 }}
+                          >
+                            {item.daysUntilExpiry}d left
+                          </span>
+                        )}
+                        <span
+                          className={`dash-badge ${isExpired ? "dash-badge-red" : "dash-badge-orange"}`}
+                        >
+                          {isExpired ? "Expired" : "Expiring soon"}
+                        </span>
+                      </div>
+                    </div>
                   );
                 })}
-              </List>
-            </Paper>
-          </Grid>
 
-          {/* Needs Attention Table */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Needs attention</Typography>
-                <Button color="primary" onClick={() => navigate('/inventory')}>Open inventory →</Button>
-              </Box>
-              <List dense>
-                {expiringItems.slice(0, 5).map((item, i) => (
-                  <React.Fragment key={item.id || i}>
-                    <ListItem sx={{ py: 1.5 }}>
-                      <ListItemText 
-                        primary={<Typography variant="body2" sx={{ fontWeight: 'bold' }}>{item.name}</Typography>}
-                        secondary={`${item.genericName || item.category || 'Medicine'} · Batch ${item.batchNumber || 'N/A'}`}
-                      />
-                      <Box>
-                        <Typography variant="caption" sx={{ bgcolor: '#fff3e0', color: '#e65100', px: 1.5, py: 0.5, borderRadius: 2, fontWeight: 'bold' }}>
-                          Expiring soon
-                        </Typography>
-                      </Box>
-                    </ListItem>
-                    {i < Math.min(expiringItems.length, 5) - 1 && <Divider />}
-                  </React.Fragment>
+                {lowStockList.map((item, idx) => (
+                  <div key={`stock-${idx}`} className="dash-list-row">
+                    <div className="dash-row-left">
+                      <div>
+                        <p className="dash-cell-title">{item.medicineName}</p>
+                        <p className="dash-cell-sub">
+                          Reorder level: {item.reorderLevel} • Stock:{" "}
+                          {item.stockQuantity}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="dash-row-right">
+                      <span
+                        className="dash-cell-sub"
+                        style={{ fontWeight: 600 }}
+                      >
+                        {item.stockQuantity} left
+                      </span>
+                      <span className="dash-badge dash-badge-red">
+                        Low stock
+                      </span>
+                    </div>
+                  </div>
                 ))}
-              </List>
-            </Paper>
-          </Grid>
-        </Grid>
-
-      </Box>
-    </Box>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
+
+export default Dashboard;

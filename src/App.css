@@ -8,5 +8,31 @@
   flex: 1;
   height: 100vh;
   overflow-y: auto;
-  padding: 20px;
 }
+
+/* Works in Chrome, Edge, Safari */
+*::-webkit-scrollbar {
+  width: 5px;   
+  height: 5px;  
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #047857;
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #065f46;
+}
+
+/* Works in Firefox */
+* {
+  scrollbar-width: thin;              /* thin scrollbar */
+  scrollbar-color: #047857 #f1f5f9;   /* thumb color + track color */
+}
+

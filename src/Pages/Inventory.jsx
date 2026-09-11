@@ -66,6 +66,7 @@ function Inventory() {
       await deleteMedicine(id);
       const meds = await getMedicines();
       setInventoryData(Array.isArray(meds) ? meds : []);
+      window.location.reload();
     } catch (error) {
       console.error("Error deleting medicine:", error);
     }
