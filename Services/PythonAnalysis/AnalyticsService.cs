@@ -83,7 +83,7 @@ namespace PharmacyApi.Services.PythonAnalysis
         }
 
         // 8. Expiring Soon Medicines
-        public async Task<List<ExpiringSoonMedicineDto>> GetExpiringSoonMedicinesAsync(int daysAhead = 90)
+        public async Task<List<ExpiringSoonMedicineDto>> GetExpiringSoonMedicinesAsync(int daysAhead = 30)
         {
             var result = await _httpClient.GetFromJsonAsync<List<ExpiringSoonMedicineDto>>($"analytics/expiring-soon?days_ahead={daysAhead}", _jsonOptions);
             return result ?? new();

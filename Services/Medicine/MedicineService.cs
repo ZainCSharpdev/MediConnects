@@ -43,51 +43,74 @@ namespace PharmacyApi.Services.Medicine
         {
             return await _readRepo.GetMedicineCount();
         }
+
         public async Task<IEnumerable<SupplierDto>> GetAllSuppliersAsync()
         {
             return await _supplierReadRepo.GetAllSuppliersAsync();
         }
 
-        // ✅ Combined search: SQL + Mongo
+        // ✅ Combined search: SQL + Mongo with Supplier-to-Manufacturer mapping
         public async Task<IEnumerable<SearchMedicineResultDto>> SearchMedicineByNameAsync(string term)
         {
-            // SQL search
+            string searchTerm = term ?? string.Empty;
+
+            // 1. Fetch all suppliers once and map them into a Dictionary for O(1) quick lookups
+            var suppliers = await _supplierReadRepo.GetAllSuppliersAsync();
+            var supplierDict = suppliers != null
+                ? suppliers.ToDictionary(s => s.SupplierId.ToString(), s => s.SupplierName)
+                : new Dictionary<string, string>();
+
+            // 2. SQL search
             var sqlMedicines = await _readRepo.GetAllMedicinesAsync();
             var sqlMatches = sqlMedicines
-                .Where(m => m.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .Where(m => string.IsNullOrEmpty(searchTerm) || m.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
                 .Take(5)
-                .Select(m => new SearchMedicineResultDto
+                .Select(m =>
                 {
-                    Id = m.MedicineId.ToString(),
-                    Name = m.Name,
-                    Price = m.Price.ToString("0.00"),
-                    pack_size_label = m.pack_size_label.ToString(),
-                    Manufacturer = "",
-                    Category = m.Category,
-                    StockQuantity = m.StockQuantity.ToString()
+                    string supplierKey = m.SupplierId?.ToString();
+                    string resolvedManufacturer = string.Empty;
+
+                    // Map Supplier Name as Manufacturer if SupplierId matches
+                    if (supplierKey != null && supplierDict.ContainsKey(supplierKey))
+                    {
+                        resolvedManufacturer = supplierDict[supplierKey];
+                    }
+
+                    return new SearchMedicineResultDto
+                    {
+                        Id = m.MedicineId.ToString(),
+                        Name = m.Name ?? string.Empty,
+                        Price = m.Price.ToString("0.00"),
+                        pack_size_label = m.pack_size_label.ToString() ?? string.Empty,
+                        Manufacturer = resolvedManufacturer,
+                        Category = m.Category ?? string.Empty,
+                        StockQuantity = m.StockQuantity.ToString()
+                    };
                 });
 
-            // Mongo search
-            var filter = Builders<MongoMedicine>.Filter.Regex(
-                m => m.Name,
-                new MongoDB.Bson.BsonRegularExpression(term, "i")
-            );
+            // 3. Mongo search
+            var filter = string.IsNullOrEmpty(searchTerm)
+                ? Builders<MongoMedicine>.Filter.Empty
+                : Builders<MongoMedicine>.Filter.Regex(
+                    m => m.Name,
+                    new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+                );
 
-            var mongoMatches = await _mongoCollection.Find(filter).Limit(20).ToListAsync();
+            var mongoMatches = await _mongoCollection.Find(filter).Limit(15).ToListAsync();
             var mongoResults = mongoMatches.Select(m => new SearchMedicineResultDto
             {
-                Id = m.Id,
-                Name = m.Name,
-                Price = m.Price,
-                pack_size_label=m.PackSizeLabel,
-                Manufacturer = m.ManufacturerName,
-                Category = m.Type,
-                StockQuantity = 0.ToString()
+                Id = m.Id ?? m._id.ToString(),
+                Name = m.Name ?? string.Empty,
+                Price = m.Price ?? "0.00",
+                pack_size_label = m.PackSizeLabel ?? string.Empty,
+                Manufacturer = m.ManufacturerName ?? string.Empty,
+                Category = m.Type ?? string.Empty,
+                StockQuantity = "0"
             });
 
+            // 4. Combine results and cap at 25 items total
             return sqlMatches.Concat(mongoResults).Take(25);
         }
-
 
         // ✅ SQL only
         public async Task AddMedicineAsync(MedicineDto dto)
