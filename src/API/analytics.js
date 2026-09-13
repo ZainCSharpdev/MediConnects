@@ -15,8 +15,10 @@ export const getLossMakingMedicines = async () => {
   return res.data;
 };
 
-export const getLowStockAnalytics = async () => {
-  const res = await api.get('/analytics/low-stock');
+export const getLowStockAnalytics = async (threshold = 50) => {
+  const res = await api.get('/analytics/low-stock', {
+    params: { threshold } // Passes threshold if your backend expects it
+  });
   return res.data;
 };
 
@@ -35,8 +37,10 @@ export const getTopMedicines = async () => {
   return res.data;
 };
 
-export const getExpiringSoonAnalytics = async () => {
-  const res = await api.get('/analytics/expiring-soon');
+export const getExpiringSoonAnalytics = async (daysAhead = 30) => {
+  const res = await api.get('/analytics/expiring-soon', {
+    params: { daysAhead } // Maps directly to ?daysAhead=30 (or whatever you pass)
+  });
   return res.data;
 };
 

@@ -134,7 +134,8 @@ function Sale() {
             </tr>
           </thead>
           <tbody>
-            {sales.map((sale) => (
+            {/* Reversed to show last recorded sales first */}
+            {sales.slice().reverse().map((sale) => (
               <tr key={sale.saleId}>
                 <td>{sale.invoice}</td>
                 <td>{new Date(sale.saleDate).toLocaleString("en-IN")}</td>
@@ -162,7 +163,7 @@ function Sale() {
         </table>
       </div>
 
-      {/* Blurred Backdrop Modal with Enclosed Receipt Card & Table Structure */}
+      {/* Modal Section */}
       {selectedSale && (
         <div className="modal-backdrop">
           <div className="invoice-modal-card">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getMedicines,
   updateMedicine,
@@ -15,7 +16,16 @@ const formatDate = (dateString) => {
   return `${day} ${month} ${year}`;
 };
 
+// Helper to format date for <input type="date" /> (YYYY-MM-DD)
+const formatInputDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  return date.toISOString().split("T")[0];
+};
+
 function Inventory() {
+  const navigate = useNavigate();
   const [inventoryData, setInventoryData] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -50,9 +60,17 @@ function Inventory() {
 
   const handleUpdate = async () => {
     try {
-      await updateMedicine(editingId, editData);
+      // Ensure expiryDate is properly formatted/parsed if needed before submitting
+      const payload = {
+        ...editData,
+        stockQuantity: Number(editData.stockQuantity),
+        price: parseFloat(editData.price),
+        expiryDate: editData.expiryDate ? new Date(editData.expiryDate).toISOString() : editData.expiryDate,
+      };
+
+      await updateMedicine(editingId, payload);
       setInventoryData((prev) =>
-        prev.map((m) => (m.medicineId === editingId ? editData : m)),
+        prev.map((m) => (m.medicineId === editingId ? { ...m, ...payload } : m)),
       );
       setEditingId(null);
       setEditData({});
@@ -75,10 +93,10 @@ function Inventory() {
   const filteredData = inventoryData.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    getSupplierName(item.supplierId)
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+      .includes(searchTerm.toLowerCase()) ||
+      getSupplierName(item.supplierId)
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const matchesCategory =
       category === "all" || item.category.toLowerCase() === category;
@@ -108,7 +126,7 @@ function Inventory() {
           <p className="inventory-count">{inventoryData.length} • medicines</p>
         </div>
         <div className="addmedicine">
-          <button className="addmedicine-btn">
+          <button className="addmedicine-btn" onClick={() => navigate('/medicine')}>
             <Plus size={16} />
             Add Medicine
           </button>
@@ -127,7 +145,6 @@ function Inventory() {
           />
         </div>
         <div className="filters">
-          {/* Category Dropdown */}
           <div className="category">
             <select
               className="filter-select"
@@ -145,7 +162,6 @@ function Inventory() {
             </select>
           </div>
           <div className="status">
-            {/* Status Dropdown */}
             <select
               className="filter-select"
               value={status}
@@ -188,52 +204,81 @@ function Inventory() {
                 <td>
                   <span className="badge badge-gray">{item.category}</span>
                 </td>
+                
+                {/* Expiry Column (Editable) */}
                 <td>
-                  {(() => {
-                    const expiryDate = new Date(item.expiryDate);
-                    const now = new Date();
-                    const diffDays = Math.ceil(
-                      (expiryDate - now) / (1000 * 60 * 60 * 24),
-                    );
+                  {editingId === item.medicineId ? (
+                    <input
+                      type="date"
+                      value={formatInputDate(editData.expiryDate)}
+                      onChange={(e) =>
+                        setEditData({ ...editData, expiryDate: e.target.value })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    (() => {
+                      const expiryDate = new Date(item.expiryDate);
+                      const now = new Date();
+                      const diffDays = Math.ceil(
+                        (expiryDate - now) / (1000 * 60 * 60 * 24),
+                      );
 
-                    if (expiryDate < now) {
-                      return <span className="badge badge-red">Expired</span>;
-                    } else if (diffDays <= 30) {
-                      return (
-                        <span className="badge badge-orange">
-                          {diffDays}d left
-                        </span>
-                      );
-                    } else {
-                      return formatDate(item.expiryDate);
-                    }
-                  })()}{" "}
+                      if (expiryDate < now) {
+                        return <span className="badge badge-red">Expired</span>;
+                      } else if (diffDays <= 30) {
+                        return (
+                          <span className="badge badge-orange">
+                            {diffDays}d left
+                          </span>
+                        );
+                      } else {
+                        return formatDate(item.expiryDate);
+                      }
+                    })()
+                  )}
                 </td>
+
+                {/* Stock Column (Editable) */}
                 <td>
-                  {(() => {
-                    if (item.stockQuantity === 0) {
-                      return (
-                        <span className="badge badge-red">Out of stock</span>
-                      );
-                    } else if (item.stockQuantity < item.reorderLevel) {
-                      return (
-                        <span className="badge badge-orange">
-                          Low • {item.stockQuantity}
-                        </span>
-                      );
-                    } else {
-                      return (
-                        <span className="badge badge-green">
-                          {item.stockQuantity} in stock
-                        </span>
-                      );
-                    }
-                  })()}
+                  {editingId === item.medicineId ? (
+                    <input
+                      type="number"
+                      value={editData.stockQuantity}
+                      onChange={(e) =>
+                        setEditData({ ...editData, stockQuantity: e.target.value })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    (() => {
+                      if (item.stockQuantity === 0) {
+                        return (
+                          <span className="badge badge-red">Out of stock</span>
+                        );
+                      } else if (item.stockQuantity < item.reorderLevel) {
+                        return (
+                          <span className="badge badge-orange">
+                            Low • {item.stockQuantity}
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span className="badge badge-green">
+                            {item.stockQuantity} in stock
+                          </span>
+                        );
+                      }
+                    })()
+                  )}
                 </td>
+
+                {/* Price Column (Editable) */}
                 <td className="cell-title">
                   {editingId === item.medicineId ? (
                     <input
                       type="number"
+                      step="0.01"
                       value={editData.price}
                       onChange={(e) =>
                         setEditData({ ...editData, price: e.target.value })
@@ -244,6 +289,7 @@ function Inventory() {
                     `₹${item.price}`
                   )}
                 </td>
+
                 <td>{getSupplierName(item.supplierId)}</td>
                 <td className="text-right">
                   {editingId === item.medicineId ? (

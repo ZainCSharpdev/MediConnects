@@ -60,7 +60,8 @@ function Dashboard() {
         const salesData = await getSales().catch(() => []);
         const safeSales = Array.isArray(salesData) ? salesData : [];
 
-        setRecentSales(safeSales.slice(0, 5));
+        // Grab last 5 sales and reverse them so newest is first
+        setRecentSales(safeSales.slice(-5).reverse());
 
         // Filter today's sales
         const todaysSalesList = safeSales.filter((s) => {
@@ -85,12 +86,10 @@ function Dashboard() {
           typeof countData === "number" ? countData : countData?.count || 0,
         );
 
-        // 3. Fetch Low Stock with threshold = 50
         const stockData = await getLowStockAnalytics(50).catch(() => []);
         setLowStockList(Array.isArray(stockData) ? stockData : []);
 
-        // 4. Fetch Expiring Soon with daysAhead = 90
-        const expiryData = await getExpiringSoonAnalytics(90).catch(() => []);
+        const expiryData = await getExpiringSoonAnalytics(30).catch(() => []);
         setExpiringSoonList(Array.isArray(expiryData) ? expiryData : []);
       } catch (error) {
         console.error("Error loading dashboard metrics:", error);
@@ -180,7 +179,7 @@ function Dashboard() {
               <Calendar size={20} />
             </div>
           </div>
-          <p className="dash-card-footer">Expired or expiring within 90 days</p>
+          <p className="dash-card-footer">Expiring within 30 days</p>
         </div>
       </div>
 

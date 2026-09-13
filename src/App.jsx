@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "r
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./Pages/Dashboard";
 import Inventory from "./Pages/Inventory";
+import Medicine from "./Pages/Medicine"
 import Billing from "./Pages/Billing";
 import Sale from "./Pages/Sale";
 import Login from "./Pages/Login";
@@ -93,6 +94,14 @@ function Layout() {
                 <Inventory />
               </ProtectedRoute>
             }
+          />
+          <Route
+          path="/medicine"
+          element={
+            <ProtectedRoute>
+              <Medicine/>
+            </ProtectedRoute>
+          }
           />
           <Route
             path="/Billing"
