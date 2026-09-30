@@ -12,9 +12,9 @@ agnostic Python (functions returning dicts) built against this schema:
   PurchaseOrders(PurchaseOrderId, SupplierId, OrderDate,
                  ExpectedDeliveryDate, ActualDeliveryDate)
   PurchaseOrderDetails(PurchaseOrderDetailId, PurchaseOrderId, MedicineId,
-                        Quantity, UnitCost)
+                       Quantity, UnitCost)
   Sale(SaleId, SaleDate, Invoice, CustomerName, TotalAmount, Discount,
-       NetAmount, Method)
+        NetAmount, Method)
   SalesDetails(SaleDetailId, SaleId, MedicineId, Qty, UnitPrice, TotalPrice)
 """
 import logging
@@ -79,9 +79,9 @@ def get_profit_loss_summary(start_date: date, end_date: date) -> dict:
 def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 50) -> list[dict]:
     query = """
         SELECT TOP (?)
-            m.MedicineId                            AS medicine_id,
-            m.Name                                  AS medicine_name,
-            ISNULL(SUM(sd.TotalPrice), 0)           AS revenue,
+            m.MedicineId                    AS medicine_id,
+            m.Name                          AS medicine_name,
+            ISNULL(SUM(sd.TotalPrice), 0)       AS revenue,
             ISNULL(SUM(sd.Qty * m.CostPrice), 0)    AS cost
         FROM Sales s
         JOIN SaleDetails sd ON sd.SaleId = s.SaleId
@@ -120,9 +120,9 @@ def get_profit_loss_by_medicine(start_date: date, end_date: date, limit: int = 5
 def get_loss_making_medicines(start_date: date, end_date: date, limit: int = 50) -> list[dict]:
     query = """
         SELECT TOP (?)
-            m.MedicineId                            AS medicine_id,
-            m.Name                                  AS medicine_name,
-            ISNULL(SUM(sd.TotalPrice), 0)           AS revenue,
+            m.MedicineId                    AS medicine_id,
+            m.Name                          AS medicine_name,
+            ISNULL(SUM(sd.TotalPrice), 0)       AS revenue,
             ISNULL(SUM(sd.Qty * m.CostPrice), 0)    AS cost
         FROM Sales s
         JOIN SaleDetails sd ON sd.SaleId = s.SaleId
@@ -155,13 +155,13 @@ def get_low_stock_medicines(threshold: int | None = None) -> list[dict]:
         # Default behavior: checks every medicine's individual reorder level
         query = """
             SELECT
-                m.MedicineId                            AS medicine_id,
-                m.Name                                  AS medicine_name,
-                m.StockQuantity                         AS stock_quantity,
-                m.ReorderLevel                          AS reorder_level,
+                m.MedicineId                        AS medicine_id,
+                m.Name                              AS medicine_name,
+                m.StockQuantity                     AS stock_quantity,
+                m.ReorderLevel                      AS reorder_level,
                 (m.ReorderLevel - m.StockQuantity)      AS shortfall,
-                sup.SupplierId                          AS supplier_id,
-                sup.SupplierName                        AS supplier_name
+                sup.SupplierId                      AS supplier_id,
+                sup.SupplierName                    AS supplier_name
             FROM Medicines m
             LEFT JOIN Suppliers sup ON sup.SupplierId = m.SupplierId
             WHERE m.ReorderLevel IS NOT NULL
@@ -173,13 +173,13 @@ def get_low_stock_medicines(threshold: int | None = None) -> list[dict]:
     # Optional threshold override if passed from frontend
     query = """
         SELECT
-            m.MedicineId                            AS medicine_id,
-            m.Name                                  AS medicine_name,
-            m.StockQuantity                         AS stock_quantity,
-            m.ReorderLevel                          AS reorder_level,
+            m.MedicineId                        AS medicine_id,
+            m.Name                              AS medicine_name,
+            m.StockQuantity                     AS stock_quantity,
+            m.ReorderLevel                      AS reorder_level,
             (m.ReorderLevel - m.StockQuantity)      AS shortfall,
-            sup.SupplierId                          AS supplier_id,
-            sup.SupplierName                        AS supplier_name
+            sup.SupplierId                      AS supplier_id,
+            sup.SupplierName                    AS supplier_name
         FROM Medicines m
         LEFT JOIN Suppliers sup ON sup.SupplierId = m.SupplierId
         WHERE m.ReorderLevel IS NOT NULL
@@ -247,10 +247,10 @@ def get_supplier_medicine_costs(supplier_id: int) -> list[dict]:
 def get_top_selling_medicines(start_date: date, end_date: date, limit: int = 10) -> list[dict]:
     query = """
         SELECT TOP (?)
-            m.MedicineId                         AS medicine_id,
-            m.Name                               AS medicine_name,
-            SUM(sd.Qty)                          AS units_sold,
-            SUM(sd.TotalPrice)                   AS revenue
+            m.MedicineId                                 AS medicine_id,
+            m.Name                                       AS medicine_name,
+            SUM(sd.Qty)                                  AS units_sold,
+            SUM(sd.TotalPrice)                           AS revenue
         FROM Sales s
         JOIN SaleDetails sd ON sd.SaleId = s.SaleId
         JOIN Medicines m    ON m.MedicineId = sd.MedicineId
@@ -266,17 +266,18 @@ def get_top_selling_medicines(start_date: date, end_date: date, limit: int = 10)
     return rows
 
 
-def get_expiring_soon_medicines(days_ahead: int = 90) -> list[dict]:
+def get_expiring_soon_medicines(days_ahead: int = 30) -> list[dict]:
     query = """
         SELECT
             m.MedicineId    AS medicine_id,
-            m.Name           AS medicine_name,
+            m.Name          AS medicine_name,
             m.Category      AS category,
             m.StockQuantity AS stock_quantity,
             m.ExpiryDate    AS expiry_date,
             DATEDIFF(DAY, GETDATE(), m.ExpiryDate) AS days_until_expiry
         FROM Medicines m
-        WHERE m.ExpiryDate <= DATEADD(DAY, ?, GETDATE())
+        WHERE m.ExpiryDate >= CAST(GETDATE() AS DATE)
+          AND m.ExpiryDate <= DATEADD(DAY, CAST(? AS INT), CAST(GETDATE() AS DATE))
         ORDER BY m.ExpiryDate ASC
     """
     return fetch_all(query, (days_ahead,))
@@ -479,7 +480,7 @@ def top_selling_medicines(
     tags=["inventory"],
 )
 def expiring_soon(
-    days_ahead: int = Query(default=90, ge=1, le=730, description="Window in days")
+    days_ahead: int = Query(default=30, ge=1, le=730, description="Window in days")
 ):
     return _call(get_expiring_soon_medicines, days_ahead)
 
@@ -509,6 +510,7 @@ def sales_by_payment_method(
 def dashboard(
     start_date: date = Query(default=None),
     end_date: date = Query(default=None),
+    days_ahead: int = Query(default=30, ge=1, le=730, description="Days window for expiring soon"),
 ):
     start_date, end_date = _resolve_range(start_date, end_date)
 
@@ -517,5 +519,5 @@ def dashboard(
         "low_stock": _call(get_low_stock_medicines, None),
         "supplier_lead_time": _call(get_supplier_lead_times, 12),
         "top_medicines": _call(get_top_selling_medicines, start_date, end_date, 10),
-        "expiring_soon": _call(get_expiring_soon_medicines, 90),
+        "expiring_soon": _call(get_expiring_soon_medicines, days_ahead),
     }
